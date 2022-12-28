@@ -1,0 +1,55 @@
+import config
+
+'''importing libraries'''
+import requests
+import pandas as pd
+import json
+import sqlalchemy
+import sqlite3
+
+
+
+AUTH_URL = 'https://accounts.spotify.com/api/token'
+
+'''getting access token'''
+auth_response = requests.post(AUTH_URL, {
+    'grant_type': 'client_credentials',
+    'client_id': config.CLIENT_ID,
+    'client_secret': config.CLIENT_SECRET,
+})
+
+'''variables'''
+base_url = 'https://api.spotify.com/v1/'
+artist_id = '51Blml2LZPmy7TTiAg47vQ'
+
+auth_response_data = auth_response.json()
+
+access_token = auth_response_data['access_token']
+
+headers = {
+    'Authorization': 'Bearer {token}'.format(token=access_token)
+}
+
+
+'''getting artist albums'''
+
+get_albums = requests.get(f"{base_url}artists/{artist_id}/albums", 
+                 headers=headers, 
+                 params={'include_groups': 'album', 'limit': 50})
+
+
+resp = get_albums.json()
+
+album_list = []
+
+for album in resp['items']:
+    record = {}
+    record['id'] = album['id']
+    record['name'] = album['name']
+    record['available_markets'] = album['available_markets']
+    record['release_date'] = album['release_date']
+    record['release_date'] = album['release_date']
+    record['total_tracks'] = album['total_tracks']
+    album_list.append(record)
+
+pd.json_normalize(album_list)
