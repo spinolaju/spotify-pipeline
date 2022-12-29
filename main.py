@@ -11,14 +11,14 @@ import sqlite3
 
 AUTH_URL = 'https://accounts.spotify.com/api/token'
 
-'''getting access token'''
+#getting access token
 auth_response = requests.post(AUTH_URL, {
     'grant_type': 'client_credentials',
     'client_id': config.CLIENT_ID,
     'client_secret': config.CLIENT_SECRET,
 })
 
-'''variables'''
+#variables
 base_url = 'https://api.spotify.com/v1/'
 artist_id = '51Blml2LZPmy7TTiAg47vQ'
 
@@ -31,18 +31,18 @@ headers = {
 }
 
 
-'''getting artist albums'''
+
+#getting artist albums
 
 get_albums = requests.get(f"{base_url}artists/{artist_id}/albums", 
                  headers=headers, 
                  params={'include_groups': 'album', 'limit': 50})
 
-
-resp = get_albums.json()
+resp_albums = get_albums.json()
 
 album_list = []
 
-for album in resp['items']:
+for album in resp_albums['items']:
     record = {}
     record['id'] = album['id']
     record['name'] = album['name']
@@ -52,4 +52,23 @@ for album in resp['items']:
     record['total_tracks'] = album['total_tracks']
     album_list.append(record)
 
-pd.json_normalize(album_list)
+#pd.json_normalize(album_list)
+
+#getting album tracks
+track_list = []
+
+for album_id in album_list:
+   get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks", headers=headers)
+   
+   resp_tracks = get_tracks.json()
+   for track in resp_tracks['items']:
+    record = {}
+    record['album_id'] = album_id['id']
+    record['id'] = track['id']
+    record['name'] = track['name']
+    record['track_number'] = track['track_number']
+    record['duration_ms'] = track['duration_ms']
+    track_list.append(record)
+    
+  
+#pd.json_normalize(track_list)
