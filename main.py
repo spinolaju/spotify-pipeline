@@ -71,4 +71,20 @@ for album_id in album_list:
     track_list.append(record)
     
   
-#pd.json_normalize(track_list)
+#Getting Audio analysis for each track
+
+track_info = []
+
+for track_id in albums_tracks:
+   get_tracks_analysis = requests.get(f"{base_url}audio-analysis/{track_id['track_id']}", headers=headers)
+
+   resp_tr_analysis = get_tracks_analysis.json()
+
+   for tr_attr, tr_info in resp_tr_analysis['track'].items():
+    
+
+    record = {}
+    if tr_attr == "loudness":
+     record['track_id'] = track_id['track_id']
+     record['loudness'] = tr_info
+     track_info.append(record)
