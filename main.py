@@ -4,10 +4,20 @@ import config
 import requests
 import pandas as pd
 import json
+import pyodbc
 import sqlalchemy
-import sqlite3
+import urllib
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine.url import URL
+from sqlalchemy.orm import sessionmaker
 
+from datetime import datetime
+    
 
+server = config.SERVER
+database = config.DATABASE
+username = config.USERNAME
+password = config.PASSWORD
 AUTH_URL = 'https://accounts.spotify.com/api/token'
 
 #Getting access token
@@ -45,8 +55,25 @@ def validate_data(df: pd.DataFrame, id) -> bool:
       raise Exception("Null values found")
     return True
 
-### Extracting the data from the Spotify API
+def parsing_date(date_string):
+    datetime_object = datetime.strptime(date_string, '%Y-%m-%d' )
+    return datetime_object.strftime('%Y')
 
+
+def does_table_exist(db_con, table_name):
+    #c = db_con.cursor()
+    result = db_con.execute(f"""
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_name = '{table_name}'
+        """.format(table_name.replace('\'', '\'\'')))
+    
+    if(result.fetchone()[0] == 1):
+        return True
+    else:
+        return False
+
+### EXTRACTING AND PREPROCESSING
 #Getting artist albums
 
 get_albums = requests.get(f"{base_url}artists/{artist_id}/albums", 
@@ -63,8 +90,8 @@ for album in resp_albums['items']:
     record = {}
     record['artist_id'] = artist_id
     record['id'] = album['id']
-    record['name'] = album['name']
-    record['release_date'] = album['release_date']
+    record['album_name'] = album['name']
+    record['release_year'] = parsing_date(album['release_date']) #parsing date 
     record['total_tracks'] = album['total_tracks']
     album_list.append(record)
 
@@ -81,7 +108,7 @@ for album_id in album_list:
     record = {}
     record['album_id'] = album_id['id']
     record['track_id'] = track['id']
-    record['name'] = track['name']
+    record['track_name'] = track['name']
     record['track_number'] = track['track_number']
     record['duration_ms'] = track['duration_ms']
     record['loudness'] = ""
@@ -96,26 +123,22 @@ for track_id in albums_tracks:
    get_tracks_analysis = requests.get(f"{base_url}audio-analysis/{track_id['track_id']}", headers=headers)
 
    resp_tr_analysis = get_tracks_analysis.json()
-
 #Appending track loudness to each track in the dictionary
+   for tr_attr, tr_info in resp_tr_analysis['track'].items():
+      record = {}
+      if tr_attr == "loudness":
+        record['track_id'] = track_id['track_id']
+        record['loudness'] = tr_info
+        track_info.append(record)
 
-for tr_attr, tr_info in resp_tr_analysis['track'].items():
-    record = {}
-    if tr_attr == "loudness":
-     record['track_id'] = track_id['track_id']
-     record['loudness'] = tr_info
-     track_info.append(record)
-
-    
 #Adding track loudness to each track
 for tr_info in track_info:
   for track in albums_tracks:
     if(tr_info['track_id'] == track['track_id']):
       track['loudness'] = tr_info['loudness']
 
-#Transforming the data into a tabular format
-albums_df = pd.DataFrame(album_list, columns = ["id", "name", "release_date", "total_tracks", "artist_id"])
-tracks_df = pd.DataFrame(albums_tracks, columns = ["album_id", "track_id", "name", "duration_ms", "loudness", "artist_id"])
+albums_df = pd.DataFrame(album_list, columns = ["id", "album_name", "release_year", "total_tracks", "artist_id"])
+tracks_df = pd.DataFrame(albums_tracks, columns = ["album_id", "track_id", "track_name", "duration_ms", "loudness", "artist_id"])
 
 #Validating Dataframes
 if validate_data(albums_df, "id" ):
@@ -125,46 +148,80 @@ if validate_data(tracks_df, "track_id"):
   print("Tracks list dataframe validation ok")
 
 
-###Loading the processed data into the database
+###LOADING THE PROCESSED DATA INTO THE DATABASE 
 
-eng = sqlalchemy.create_engine(config.DB_LOCATION)
-connection = sqlite3.connect('artist_report.sqlite')
-c = connection.cursor()
+#Connecting to the database
 
-#Creating queries to either create a table or append to a existing table
+params = urllib.parse.quote_plus("DRIVER={SQL Server};"
+                                     "SERVER="+server+";"
+                                     "DATABASE="+database+";"
+                                     "UID="+username+";"
+                                     "PWD="+password+";")
+    
+engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(params))
 
-album_query = """
-CREATE TABLE IF NOT EXISTS artist_albums(
-    id VARCHAR(200),
-    name VARCHAR(200), 
-    release_date VARCHAR(200), 
+#Creating tables
+with engine.connect() as connection:
+
+  if(does_table_exist(connection, 'artist_album')):
+    print("artist_album table exists")
+  else:
+    album_query = """
+    CREATE TABLE artist_album(
+    id VARCHAR(200) primary key, 
+    album_name VARCHAR(200), 
+    release_year VARCHAR(200), 
     total_tracks VARCHAR(200),
-    artist_id VARCHAR(200),
-    CONSTRAINT primary_key_constraint PRIMARY KEY (id)
-)
-"""
+    artist_id VARCHAR(200)
+    )
+    """
+    connection.execute(album_query)
 
-track_query = """
-CREATE TABLE IF NOT EXISTS tracks(
+  if(does_table_exist(connection, 'track')):
+    print("track table exists")
+
+  else:
+    track_query = """
+    CREATE TABLE track(
     album_id VARCHAR(200),
-    track_id VARCHAR(200), 
-    name VARCHAR(200), 
+    track_id VARCHAR(200) primary key, 
+    track_name VARCHAR(200), 
     duration_ms VARCHAR(200), 
     loudness VARCHAR(200),
-    artist_id VARCHAR(200),
-    CONSTRAINT primary_key_constraint PRIMARY KEY (track_id)
-)
-"""
+    artist_id VARCHAR(200)
+    )
+    """
+    connection.execute(track_query)
 
-c.execute(album_query)
-c.execute(track_query)
 
-try:
-   albums_df.to_sql("artist_albums", eng, index=False, if_exists='append')
-   tracks_df.to_sql("tracks", eng, index=False, if_exists='append')
-except Exception as e:
-    print(e)
+  try:
+  #Creating queries to either insert/append to a table
+    albums_df.to_sql("album_temp", index=False, schema = 'dbo', con=engine, if_exists='replace')
+    print('Loading album dataframe into the database')
+    tracks_df.to_sql("track_temp", index=False, schema = 'dbo', con=engine, if_exists='replace')
+    print('Loading tracks dataframe into the database')
+      
 
-connection.close()
+    album_table = """INSERT INTO artist_album (id, album_name, release_year, total_tracks, artist_id)
+            SELECT t.id, t.album_name, t.release_year, t.total_tracks, t.artist_id
+            FROM album_temp t
+            WHERE NOT EXISTS 
+                (SELECT 1 FROM artist_album f
+                 WHERE t.id = f.id)
+                 """
+    print('Updating tables...')
+    track_table = """INSERT INTO track (album_id, track_id, track_name, duration_ms, loudness, artist_id)
+            SELECT t.album_id, t.track_id, t.track_name, t.duration_ms, t.loudness, t.artist_id
+            FROM track_temp t
+            WHERE NOT EXISTS 
+                (SELECT 1 FROM track f
+                 WHERE t.track_id = f.track_id)
+                 """
+  #Loading the data into the correspondent tables
+    connection.execute(album_table)
+    connection.execute(track_table)
+    print('Data loaded into the database successfully!')
 
+  except Exception as e:
+      print(e)
 
