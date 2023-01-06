@@ -32,7 +32,9 @@ def query_database(album_info, table_column, dict_to_append):
             records[f'{table_column}'] = str(qr).replace('(', '').replace(',', '').replace(')', '').replace("'", '')
             dict_to_append.append(records)
 
-id_query = """SELECT id, album_name, total_tracks FROM artist_album"""
+artist_id = '6XyY86QOPPrYVGvF9ch6wz'
+
+id_query = f"""SELECT id, album_name, total_tracks FROM artist_album WHERE artist_id = '{artist_id}'"""
 album_ids = []
 album_duration = []
 album_loudness = []

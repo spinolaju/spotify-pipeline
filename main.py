@@ -10,6 +10,7 @@ import urllib
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine.url import URL
 from sqlalchemy.orm import sessionmaker
+from tabulate import tabulate
 
 from datetime import datetime
     
@@ -29,7 +30,7 @@ auth_response = requests.post(AUTH_URL, {
 
 #Defining Variables
 base_url = 'https://api.spotify.com/v1/'
-artist_id = '51Blml2LZPmy7TTiAg47vQ'
+#artist_id = '51Blml2LZPmy7TTiAg47vQ'
 
 auth_response_data = auth_response.json()
 
@@ -74,6 +75,39 @@ def does_table_exist(db_con, table_name):
         return False
 
 ### EXTRACTING AND PREPROCESSING
+
+#Searching for an artist
+
+artist_name = input('Enter the artist name: ')
+
+get_artists = requests.get(
+    f'{base_url}search',
+    headers=headers, 
+    params={ 'q': artist_name, 'type': 'artist' })
+
+artist_query_resp = get_artists.json()
+
+artist_query_results = []
+
+for art in artist_query_resp['artists']['items']:
+    record = {}
+   
+    record['artist_name'] = art['name']
+    record['artist_id'] = art['id']
+    record['followers'] = art['followers']['total']
+    record['genres'] =  str(art['genres']).replace('[', '').replace(']', '')
+    artist_query_results.append(record)
+    
+
+artist_query_df = pd.DataFrame(artist_query_results, columns = ["artist_name", "genres", "followers"])
+
+#Displaying the artists found
+print(tabulate(artist_query_df, showindex=True, headers=artist_query_df.columns))
+
+selectedNumber = int(input("Select the right artist from the results by the index number: "))
+
+artist_id = artist_query_results[selectedNumber]['artist_id']
+
 #Getting artist albums
 
 get_albums = requests.get(f"{base_url}artists/{artist_id}/albums", 
