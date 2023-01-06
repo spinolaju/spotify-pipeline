@@ -1,15 +1,10 @@
 import config
 
 #Importing libraries
-import requests
 import pandas as pd
-import json
-import pyodbc
 import sqlalchemy
 import urllib
-from sqlalchemy import create_engine, event
-from sqlalchemy.engine.url import URL
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
 from tabulate import tabulate
 
 from datetime import datetime
@@ -27,7 +22,15 @@ params = urllib.parse.quote_plus("DRIVER={SQL Server};"
 
 engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(params))     
 
-
+def query_database(album_info, table_column, dict_to_append):
+    for ai in album_info: 
+        query = f"SELECT {table_column} FROM track WHERE album_id = '{ai['album_id']}' "
+        query_response = connection.execute(query)
+        for qr in query_response:
+            records = {}
+            records['album_id'] = str(ai['album_id']).replace('(', '').replace(',', '').replace(')', '')
+            records[f'{table_column}'] = str(qr).replace('(', '').replace(',', '').replace(')', '').replace("'", '')
+            dict_to_append.append(records)
 
 id_query = """SELECT id, album_name, total_tracks FROM artist_album"""
 album_ids = []
@@ -43,30 +46,14 @@ with engine.connect() as connection:
         temp['album_name'] = str(r[1]).replace('(', '').replace(',', '').replace(')', '')
         temp['total_tracks'] = str(r[2]).replace('(', '').replace(',', '').replace(')', '')
         temp['duration_total'] = 0
-        
         album_ids.append(temp)
     
+    loudness = 'loudness'
+    duration_ms = 'duration_ms'
+    query_database(album_ids, loudness, album_loudness)
+    query_database(album_ids, duration_ms, album_duration)
 
-    for aid in album_ids: 
-        album_duration_query = f"SELECT duration_ms FROM track WHERE album_id = '{aid['album_id']}' "
-        duration_results = connection.execute(album_duration_query)
-        for dr in duration_results:
-            records = {}
-            records['album_id'] = str(aid['album_id']).replace('(', '').replace(',', '').replace(')', '')
-            records['duration_ms'] = str(dr).replace('(', '').replace(',', '').replace(')', '').replace("'", '')
-            album_duration.append(records)
-
-    for loud in album_ids: 
-        album_loudness_query = f"SELECT loudness FROM track WHERE album_id = '{loud['album_id']}' "
-        loudness_res = connection.execute(album_loudness_query)
-        for lr in loudness_res:
-            records = {}
-            records['album_id'] = str(loud['album_id']).replace('(', '').replace(',', '').replace(')', '')
-            records['loudness'] = str(lr).replace('(', '').replace(',', '').replace(')', '').replace("'", '')
-            album_loudness.append(records)
-
-count = 0
-
+    
 
 for id in album_ids:
    count = 0
