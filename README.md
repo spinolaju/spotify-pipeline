@@ -33,7 +33,7 @@ songs), a query can be created to group the albums/songs by year/decade and coun
 * The pipeline shall have a scalable architecture to support large workloads.
 * The pipeline shall have a flexible architecture that can be easily adapted to changing requirements.
 
-## Initial Desigh
+## Initial Design
 
 1. Client sends API request to Spotify API.
 2. API request is processed by the Spotify API server.
