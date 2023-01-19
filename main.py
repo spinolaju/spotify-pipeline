@@ -131,24 +131,45 @@ for album in resp_albums['items']:
 
 #Getting album tracks
 albums_tracks = []
-
+resp_tracks = {}
 for album_id in album_list:
-   get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks", headers=headers)
-   
-   resp_tracks = get_tracks.json()
-
-#Adding each track to a dictionary
-   for track in resp_tracks['items']:
-    record = {}
-    record['album_id'] = album_id['id']
-    record['track_id'] = track['id']
-    record['track_name'] = track['name']
-    record['track_number'] = track['track_number']
-    record['duration_ms'] = track['duration_ms']
-    record['loudness'] = ""
-    record['artist_id'] = artist_id
-    albums_tracks.append(record)
-    
+    if album_id['total_tracks'] > 50:
+        count = round(album_id['total_tracks']/ 50 + 0.5)
+        offset = 0
+        while count > 0:
+            get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks?limit=50&offset={str(offset)}", headers=headers)
+            resp_tracks.update(get_tracks.json())
+            #Adding each track to a dictionary
+            for track in resp_tracks['items']: 
+                    record = {}
+                    record['album_id'] = album_id['id']
+                    record['track_id'] = track['id']
+                    record['track_name'] = track['name']
+                    record['track_number'] = track['track_number']
+                    record['duration_ms'] = track['duration_ms']
+                    record['loudness'] = ""
+                    record['artist_id'] = artist_id
+                    albums_tracks.append(record)
+            offset += 50
+            count -= 1
+            
+            
+    else:
+        get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks?limit=50", headers=headers)
+        resp_tracks.update(get_tracks.json())
+        for track in resp_tracks['items']:
+                
+                record = {}
+                record['album_id'] = album_id['id']
+                record['track_id'] = track['id']
+                record['track_name'] = track['name']
+                record['track_number'] = track['track_number']
+                record['duration_ms'] = track['duration_ms']
+                record['loudness'] = ""
+                record['artist_id'] = artist_id
+                albums_tracks.append(record)
+       
+        
 #Getting Audio analysis for each track
 
 track_info = []
@@ -258,4 +279,3 @@ with engine.connect() as connection:
 
   except Exception as e:
       print(e)
-
