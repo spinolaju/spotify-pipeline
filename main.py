@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine.url import URL
 from sqlalchemy.orm import sessionmaker
 from tabulate import tabulate
+from alive_progress import alive_bar
 
 from datetime import datetime
     
@@ -78,7 +79,16 @@ def does_table_exist(db_con, table_name):
 
 #Searching for an artist
 
-artist_name = input('Enter the artist name: ')
+while True:
+  try:
+    artist_name = input("Enter the artist's name: ")
+    if not artist_name:
+        raise ValueError('empty string')
+  except ValueError as e:
+    print("It looks like you didn't enter anything. Please enter an artist name.")
+    continue
+  else:
+    break
 
 get_artists = requests.get(
     f'{base_url}search',
@@ -87,27 +97,36 @@ get_artists = requests.get(
 
 artist_query_resp = get_artists.json()
 
+
+
 artist_query_results = []
 
 for art in artist_query_resp['artists']['items']:
-    record = {}
-   
-    record['artist_name'] = art['name']
-    record['artist_id'] = art['id']
-    record['followers'] = art['followers']['total']
-    record['genres'] =  str(art['genres']).replace('[', '').replace(']', '')
-    artist_query_results.append(record)
+      record = {}
     
+      record['artist_name'] = art['name']
+      record['artist_id'] = art['id']
+      record['followers'] = art['followers']['total']
+      record['genres'] =  str(art['genres']).replace('[', '').replace(']', '')
+      artist_query_results.append(record)
 
 artist_query_df = pd.DataFrame(artist_query_results, columns = ["artist_name", "genres", "followers"])
 
 #Displaying the artists found
 print(tabulate(artist_query_df, showindex=True, headers=artist_query_df.columns))
 
-selectedNumber = int(input("Select the right artist from the results by the index number: "))
-
-artist_id = artist_query_results[selectedNumber]['artist_id']
-
+while True:
+    try:
+        selectedNumber = int(input("Enter the index number of the artist you would like to select: ")) 
+        artist_query_results[selectedNumber]
+    except (ValueError,IndexError):
+        print("Error: You have entered an invalid index number. Please enter a valid index number.")
+        continue
+    else:
+        print(f"Artist selected: {artist_query_results[selectedNumber]['artist_name']}")
+        artist_id = artist_query_results[selectedNumber]['artist_id']
+        break
+      
 #Getting artist albums
 
 get_albums = requests.get(f"{base_url}artists/{artist_id}/albums", 
@@ -117,74 +136,81 @@ get_albums = requests.get(f"{base_url}artists/{artist_id}/albums",
 resp_albums = get_albums.json()
 
 album_list = []
-
+total = len(resp_albums['items'])
 #Adding each album to a dictionary
 
-for album in resp_albums['items']:
+with alive_bar(total, title='Getting albums') as bar:
+  for album in resp_albums['items']:
     record = {}
     record['artist_id'] = artist_id
     record['id'] = album['id']
     record['album_name'] = album['name']
     record['release_year'] = parsing_date(album['release_date']) #parsing date 
     record['total_tracks'] = album['total_tracks']
-    album_list.append(record)
+    album_list.append(record)  
+    bar()
 
 #Getting album tracks
 albums_tracks = []
 resp_tracks = {}
+
 for album_id in album_list:
     if album_id['total_tracks'] > 50:
         count = round(album_id['total_tracks']/ 50 + 0.5)
         offset = 0
         while count > 0:
-            get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks?limit=50&offset={str(offset)}", headers=headers)
-            resp_tracks.update(get_tracks.json())
-            #Adding each track to a dictionary
-            for track in resp_tracks['items']: 
-                    record = {}
-                    record['album_id'] = album_id['id']
-                    record['track_id'] = track['id']
-                    record['track_name'] = track['name']
-                    record['track_number'] = track['track_number']
-                    record['duration_ms'] = track['duration_ms']
-                    record['loudness'] = ""
-                    record['artist_id'] = artist_id
-                    albums_tracks.append(record)
-            offset += 50
-            count -= 1
-            
-            
+          get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks?limit=50&offset={str(offset)}", headers=headers)
+          resp_tracks.update(get_tracks.json())
+          #Adding each track to a dictionary
+          
+          for track in resp_tracks['items']: 
+              record = {}
+              record['album_id'] = album_id['id']
+              record['track_id'] = track['id']
+              record['track_name'] = track['name']
+              record['track_number'] = track['track_number']
+              record['duration_ms'] = track['duration_ms']
+              record['loudness'] = ""
+              record['artist_id'] = artist_id
+              albums_tracks.append(record)
+              bar()
+          offset += 50
+          count -= 1
+              
+              
     else:
-        get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks?limit=50", headers=headers)
-        resp_tracks.update(get_tracks.json())
-        for track in resp_tracks['items']:
-                
-                record = {}
-                record['album_id'] = album_id['id']
-                record['track_id'] = track['id']
-                record['track_name'] = track['name']
-                record['track_number'] = track['track_number']
-                record['duration_ms'] = track['duration_ms']
-                record['loudness'] = ""
-                record['artist_id'] = artist_id
-                albums_tracks.append(record)
-       
-        
+          get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks?limit=50", headers=headers)
+          resp_tracks.update(get_tracks.json())
+          for track in resp_tracks['items']:
+                  record = {}
+                  record['album_id'] = album_id['id']
+                  record['track_id'] = track['id']
+                  record['track_name'] = track['name']
+                  record['track_number'] = track['track_number']
+                  record['duration_ms'] = track['duration_ms']
+                  record['loudness'] = ""
+                  record['artist_id'] = artist_id
+                  albums_tracks.append(record) 
+                  
+    
+      
 #Getting Audio analysis for each track
 
 track_info = []
+total = len(albums_tracks)
+with alive_bar(total, title='Analysing tracks') as bar:
+  for track_id in albums_tracks:
+    get_tracks_analysis = requests.get(f"{base_url}audio-analysis/{track_id['track_id']}", headers=headers)
 
-for track_id in albums_tracks:
-   get_tracks_analysis = requests.get(f"{base_url}audio-analysis/{track_id['track_id']}", headers=headers)
-
-   resp_tr_analysis = get_tracks_analysis.json()
+    resp_tr_analysis = get_tracks_analysis.json()
 #Appending track loudness to each track in the dictionary
-   for tr_attr, tr_info in resp_tr_analysis['track'].items():
-      record = {}
-      if tr_attr == "loudness":
-        record['track_id'] = track_id['track_id']
-        record['loudness'] = tr_info
-        track_info.append(record)
+    for tr_attr, tr_info in resp_tr_analysis['track'].items():
+        record = {}
+        if tr_attr == "loudness":
+          record['track_id'] = track_id['track_id']
+          record['loudness'] = tr_info
+          track_info.append(record) 
+    bar()
 
 #Adding track loudness to each track
 for tr_info in track_info:
@@ -192,16 +218,21 @@ for tr_info in track_info:
     if(tr_info['track_id'] == track['track_id']):
       track['loudness'] = tr_info['loudness']
 
-albums_df = pd.DataFrame(album_list, columns = ["id", "album_name", "release_year", "total_tracks", "artist_id"])
-tracks_df = pd.DataFrame(albums_tracks, columns = ["album_id", "track_id", "track_name", "duration_ms", "loudness", "artist_id"])
+
 
 #Validating Dataframes
-if validate_data(albums_df, "id" ):
-  print("Albums list dataframe validation ok")
-
-if validate_data(tracks_df, "track_id"):
-  print("Tracks list dataframe validation ok")
-
+with alive_bar(3, manual=True) as bar:
+    print('Creating Dataframes')
+    albums_df = pd.DataFrame(album_list, columns = ["id", "album_name", "release_year", "total_tracks", "artist_id"])                          
+    tracks_df = pd.DataFrame(albums_tracks, columns = ["album_id", "track_id", "track_name", "duration_ms", "loudness", "artist_id"])
+    bar(0.3)  
+    print('Validating dataframes')                         
+    if validate_data(albums_df, "id" ):
+      print("Albums list dataframe validation ok")
+    bar(0.6)                           
+    if validate_data(tracks_df, "track_id"):
+      print("Tracks list dataframe validation ok")
+    bar(1.)     
 
 ###LOADING THE PROCESSED DATA INTO THE DATABASE 
 
@@ -217,10 +248,8 @@ engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(para
 
 #Creating tables
 with engine.connect() as connection:
-
-  if(does_table_exist(connection, 'artist_album')):
-    print("artist_album table exists")
-  else:
+  
+  if(does_table_exist(connection, 'artist_album') == False):
     album_query = """
     CREATE TABLE artist_album(
     id VARCHAR(200) primary key, 
@@ -232,10 +261,7 @@ with engine.connect() as connection:
     """
     connection.execute(album_query)
 
-  if(does_table_exist(connection, 'track')):
-    print("track table exists")
-
-  else:
+  if(does_table_exist(connection, 'track') == False):
     track_query = """
     CREATE TABLE track(
     album_id VARCHAR(200),
