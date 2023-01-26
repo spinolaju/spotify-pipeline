@@ -1,3 +1,15 @@
+# This code contains functions and commands used to extract data from the Spotify API and load it into a database.
+# The first step is to get the access token from the Spotify API. This is done by making a POST request to the API with the client ID and client secret stored in the config module.
+# Once the authentication is successful, the code starts by asking for the artist's name to search for. It then makes a GET request to the API with the name and type of the artist. 
+# This returns a list of artists that match the search criteria, which is displayed using the tabulate method. The user is asked to choose one artist from the list and 
+# the artist's ID is stored in a variable. 
+# The next step is to get the artist's albums. This is done by making a GET request to the API with the artist's ID. Each album is then added to a dictionary. 
+# If the album has more than 50 tracks, the code makes multiple requests with a limit of 50 and an offset to get all the tracks. Each track is added to a dictionary and the track's 
+# loudness is then retrieved by making a GET request to the API with the track's ID. 
+# Once all the data has been collected, 2 dataframes are created and validated. The dataframes are then load into the database in the form of two tables: 
+# one containing the information about the artist albums and the other containing the information of the tracks associated with each album. 
+# Finally, the code queries the database to retrieve album length and loudness.
+
 import config
 
 #Importing libraries
@@ -31,7 +43,6 @@ auth_response = requests.post(AUTH_URL, {
 
 #Defining Variables
 base_url = 'https://api.spotify.com/v1/'
-#artist_id = '51Blml2LZPmy7TTiAg47vQ'
 
 auth_response_data = auth_response.json()
 
@@ -43,7 +54,6 @@ headers = {
 
 
 #Defining Functions
-
 def validate_data(df: pd.DataFrame, id) -> bool:
 
     #Checking if Primary key is unique
@@ -87,8 +97,7 @@ def query_database(album_info, table_column, dict_to_append):
 
 ### EXTRACTING AND PREPROCESSING
 
-#Searching for an artist
-
+#Searching for the artist
 while True:
   try:
     artist_name = input("Enter the artist's name: ")
@@ -106,8 +115,6 @@ get_artists = requests.get(
     params={ 'q': artist_name, 'type': 'artist' })
 
 artist_query_resp = get_artists.json()
-
-
 
 artist_query_results = []
 
@@ -147,8 +154,8 @@ resp_albums = get_albums.json()
 
 album_list = []
 total = len(resp_albums['items'])
-#Adding each album to a dictionary
 
+#Adding each album to a dictionary
 with alive_bar(total, title='Getting albums') as bar:
   for album in resp_albums['items']:
     record = {}
@@ -171,8 +178,8 @@ for album_id in album_list:
         while count > 0:
           get_tracks = requests.get(f"{base_url}albums/{album_id['id']}/tracks?limit=50&offset={str(offset)}", headers=headers)
           resp_tracks.update(get_tracks.json())
-          #Adding each track to a dictionary
-          
+
+#Adding each track to a dictionary
           for track in resp_tracks['items']: 
               record = {}
               record['album_id'] = album_id['id']
@@ -205,7 +212,6 @@ for album_id in album_list:
     
       
 #Getting Audio analysis for each track
-
 track_info = []
 total = len(albums_tracks)
 with alive_bar(total, title='Analysing tracks') as bar:
@@ -213,6 +219,7 @@ with alive_bar(total, title='Analysing tracks') as bar:
     get_tracks_analysis = requests.get(f"{base_url}audio-analysis/{track_id['track_id']}", headers=headers)
 
     resp_tr_analysis = get_tracks_analysis.json()
+    
 #Appending track loudness to each track in the dictionary
     for tr_attr, tr_info in resp_tr_analysis['track'].items():
         record = {}
@@ -227,8 +234,6 @@ for tr_info in track_info:
   for track in albums_tracks:
     if(tr_info['track_id'] == track['track_id']):
       track['loudness'] = tr_info['loudness']
-
-
 
 #Validating Dataframes
 with alive_bar(3, manual=True) as bar:
@@ -247,7 +252,6 @@ with alive_bar(3, manual=True) as bar:
 ###LOADING THE PROCESSED DATA INTO THE DATABASE 
 
 #Connecting to the database
-
 params = urllib.parse.quote_plus("DRIVER={SQL Server};"
                                      "SERVER="+server+";"
                                      "DATABASE="+database+";"
@@ -367,8 +371,6 @@ print()
 print("-----------------------------------------------------------------------------------------------------------------------------------")
 print("3. All albums listed from the longest to the shortest:")
 print(tabulate(albums_duration_df.sort_values(by=['duration_total'], ascending=False), showindex=False, headers=albums_duration_df.columns))
-
-
 
 for id in album_ids:
    temp = 0
