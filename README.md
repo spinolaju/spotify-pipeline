@@ -1,44 +1,33 @@
-## Scope
+## Background
+### Context
+Spotify is a popular music streaming service that provides access to millions of songs and artist information. The Spotify API provides an easy way to access and query a vast amount of that music data. With the Spotify API, developers can get access to detailed information about specific tracks, albums, and artists. However, many of the data formats provided by the Spotify API are limited and difficult to access and query. In order to access and query these data formats, a data pipeline can be implemented. A data pipeline is a series of steps that are taken to extract data from a source, transform it into a usable format, and store it in a database. This process allows then to access and query data formats that it is not possible to get with raw data from Spotify.
 
-The goal of this project is to build a pipeline that requests data from Spotify. The pipeline should be able to handle data requests regarding artists contents, store the requested data in a secure database where queries can be run against, to answer the questions below.
-* In which year/decade did they release the most albums/songs?
+### Scope
+ This project will focus on developing a data acquisition and preprocessing pipeline using the Spotify API to request artist data. It will be implemented using Python and the data will be stored in a relational database such as SQL Server. Subsenquently, queries can be run against the database, to answer the questions below.
 * What is the shortest/longest album? (in minutes).
 * What is the loudest album?
 
-To achieve this goal, the project will include the following steps:
-
-1. Setting up a secure server and database (data lake).
-2. Creating an ETL (Extract, Transform, Load) pipeline to gather data from the Spotify API.
-3. Extracting the data from the Spotify API into the data lake.
-4. Transforming the data into a format that can be easily queried, such as a tabular format.
-5. Creating queries to answer the questions. For example, to answer the first question (In which year/decade did they release the most albums/
-songs), a query can be created to group the albums/songs by year/decade and count the number of albums/songs released in each.
-6. Testing and debugging the pipeline to ensure it is functioning properly.
-7. Documenting the project and creating user guides to ensure smooth user experience.
-
 ## Requirements
-
 * The pipeline shall support scalability as the number of albums varies from one artist to another, therefore the system shall be able to handle a growing amount of data. 
 * The pipeline shall transform the data gathered to fix problems within the data like empty data or wrong format.  This can potentially include data type casting, joins, and aggregations.
 * The data shall be loaded into a data lake storage system to allow further processing and analysis of the data.
 * The pipeline shall be able to extract and store the data in a structured format.
 * The pipeline shall be able to monitor and alert users to any anomalies in the data.
-* The pipeline shall have an automated testing system to ensure the data is correct and within the expected parameters.
 
-## Non-Functional Requirements
+## Design
 
-* The pipeline shall be secure and have proper access control and authentication mechanisms.
-* The pipeline shall be reliable, robust and fault tolerant.
-* The pipeline shall have a low latency and be able to process data in a timely manner.
-* The pipeline shall have a scalable architecture to support large workloads.
-* The pipeline shall have a flexible architecture that can be easily adapted to changing requirements.
+### Data Acquisition: 
+1. Obtain an API key from Spotify Developer website. 
+2. Use the API key to access the Spotify API and make a request for the artist's data. 
+3. Get the JSON out of the response object. 
 
-## Initial Design
+### Data Preprocessing and transformation: 
+1. Clean up the data by removing any unnecessary columns or rows. 
+2. Normalize the data by converting any dates or times into a uniform format. 
+4. Perform any necessary data transformations such as aggregations or summaries. 
+5. Validate the data by checking for any inconsistencies or errors.
 
-1. Client sends API request to Spotify API.
-2. API request is processed by the Spotify API server.
-3. API server queries the Spotify database for the requested information.
-4. Database returns the requested information to the API server.
-5. API server returns the data to the client.
-6. The fetched data is processed to filter out only the needed data from the response.
-7. The processed data is loaded into a database.
+### Loading: 
+1. Load the data into the SQL Server database on Azure.
+2. Create and run queries to answer the questions. For example, to answer the first question (What is the shortest/longest album?), a query can be created to group the songs by album and sum the tracks length for each album.
+3. Test and debug the pipeline to ensure it is functioning properly.
