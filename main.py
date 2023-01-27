@@ -133,16 +133,20 @@ artist_query_df = pd.DataFrame(artist_query_results, columns = ["artist_name", "
 print(tabulate(artist_query_df, showindex=True, headers=artist_query_df.columns))
 
 while True:
-    try:
-        selectedNumber = int(input("Enter the index number of the artist you would like to select: ")) 
-        artist_query_results[selectedNumber]
-    except (ValueError,IndexError):
-        print("Error: You have entered an invalid index number. Please enter a valid index number.")
-        continue
+    selectedNumber = input("Enter the index number of the artist you would like to select: ")
+    if selectedNumber.isnumeric():
+        selectedNumber = int(selectedNumber)
+        try:
+            artist = artist_query_results[selectedNumber]
+        except IndexError:
+            print("Error: You have entered an invalid index number. Please enter a valid index number.")
+            continue
+        else:
+            print(f"Artist selected: {artist['artist_name']}")
+            artist_id = artist['artist_id']
+            break
     else:
-        print(f"Artist selected: {artist_query_results[selectedNumber]['artist_name']}")
-        artist_id = artist_query_results[selectedNumber]['artist_id']
-        break
+        print("Error: You have entered an invalid index number. Please enter a valid index number.")
       
 #Getting artist albums
 
