@@ -27,7 +27,6 @@ from alive_progress import alive_bar
 
 from datetime import datetime
     
-
 server = config.SERVER
 database = config.DATABASE
 username = config.USERNAME
@@ -41,7 +40,7 @@ auth_response = requests.post(AUTH_URL, {
     'client_secret': config.CLIENT_SECRET,
 })
 
-#Defining Variables
+
 base_url = 'https://api.spotify.com/v1/'
 
 auth_response_data = auth_response.json()
@@ -56,7 +55,7 @@ headers = {
 #Defining Functions
 def validate_data(df: pd.DataFrame, id) -> bool:
 
-    #Checking if Primary key is unique
+    """Check if the given dataframe has a unique primary key and no null values."""
     if pd.Series(df[id]).is_unique:
         pass
     else:
@@ -68,12 +67,13 @@ def validate_data(df: pd.DataFrame, id) -> bool:
     return True
 
 def parsing_date(date_string):
+    """Parse a date string and return it in '%Y' format."""
     datetime_object = datetime.strptime(date_string, '%Y-%m-%d' )
     return datetime_object.strftime('%Y')
 
 
 def does_table_exist(db_con, table_name):
-    #c = db_con.cursor()
+    """Check if a table exists in the database."""
     result = db_con.execute(f"""
         SELECT COUNT(*)
         FROM information_schema.tables
@@ -86,6 +86,7 @@ def does_table_exist(db_con, table_name):
         return False
       
 def query_database(album_info, table_column, dict_to_append):
+    """Execute a query on the database and append the results to a dictionary."""
     for ai in album_info: 
         query = f"SELECT {table_column} FROM track WHERE album_id = '{ai['album_id']}' "
         query_response = connection.execute(query)
