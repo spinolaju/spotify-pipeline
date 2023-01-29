@@ -15,8 +15,6 @@ import config
 #Importing libraries
 import requests
 import pandas as pd
-import json
-import pyodbc
 import sqlalchemy
 import urllib
 from sqlalchemy import create_engine, event
@@ -65,11 +63,22 @@ def validate_data(df: pd.DataFrame, id) -> bool:
     if df.isnull().values.any():
       raise Exception("Null values found")
     return True
+  
+def is_date_year(date_string_in, format='%Y'):
+    try:
+        datetime.strptime(date_string_in, format)
+        return True
+    except ValueError:
+        return False
 
 def parsing_date(date_string):
-    """Parse a date string and return it in '%Y' format."""
-    datetime_object = datetime.strptime(date_string, '%Y-%m-%d' )
-    return datetime_object.strftime('%Y')
+    #"""Parse a date string and return it in '%Y' format."""
+    if is_date_year(date_string):
+      return date_string 
+    else:
+      datetime_object = datetime.strptime(date_string, '%Y-%m-%d' )
+      return datetime_object.strftime('%Y')
+
 
 
 def does_table_exist(db_con, table_name):
@@ -224,6 +233,8 @@ with alive_bar(total, title='Analysing tracks') as bar:
     get_tracks_analysis = requests.get(f"{base_url}audio-analysis/{track_id['track_id']}", headers=headers)
 
     resp_tr_analysis = get_tracks_analysis.json()
+
+    
     
 #Appending track loudness to each track in the dictionary
     for tr_attr, tr_info in resp_tr_analysis['track'].items():

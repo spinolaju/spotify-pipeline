@@ -8,25 +8,36 @@ This project will focus on developing a data acquisition and preprocessing pipel
 * What is the loudest album?
 
 ## Requirements
+
+### Functional
+* The pipeline should retrieve and access an OAuth token from Spotify's API to authorize data extraction.
+* The pipeline should search for an artist based on the user's input and retrieve information such as name, id, number of followers and genres
+* The pipeline should display the results of the search to the user and allow them to select an artist by index number.
 * The pipeline shall support scalability as the number of albums varies from one artist to another, and the system shall be able to handle a growing amount of data.
 * The pipeline shall transform the data gathered to fix problems within the data, such as empty data or wrong format. That can potentially include data type casting, joins, and aggregations.
-* The data shall be loaded into a data lake storage system to allow further processing and analysis of the data.
-* The pipeline shall be able to extract and store the data in a structured format.
-* The data pipeline shall be able to monitor and alert users to any anomalies in the data.
+* The pipeline should clean and validate the extracted data, checking for unique primary keys and removing null values.
+* The pipeline should store the extracted and cleaned data in a database.
+
+### Non-Functional
+* The pipeline should use the requests library for API calls, pandas for data manipulation and storage, and SQLAlchemy for database connectivity and management.
+* The pipeline should be able to handle large amounts of data with high performance and efficiency.
+* The pipeline should provide clear and informative error messages in case of any failures or issues.
 
 ## Design
 ### Data Acquisition: 
 1. Obtain an API key from the Spotify Developer website.
-2. Use the API key to access the Spotify API and requests the artist's data.
-3. Get the JSON out of the response object.
+2. Use the API key to access the Spotify API and request the artist's data - by user inputting the artist's name
+3. The results are returned in JSON format.
+4. Transform the data by parsing the JSON response and storing the relevant information in a list of dictionaries
 
 ### Data Preprocessing and transformation: 
 1. Clean up the data by removing any unnecessary columns or rows.
 2. Normalize the data by converting any dates or times into a uniform format.
 3. Perform any necessary data transformations, such as aggregations or summaries.
-4. Validate the data by checking for any inconsistencies or errors.
+4. Validate the data by checking if the primary key is unique and if there are any null values in the data.
 
 ### Loading: 
 5. Load the data into the SQL Server database on Azure.
 6. Create and run queries to answer the questions. For instance, to answer the first question (What is the shortest/longest album?), a query can be created to group the songs by album and sum the track length for each album.
 7. Test and debug the pipeline to ensure it is functioning correctly.
+
